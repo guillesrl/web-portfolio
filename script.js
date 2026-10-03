@@ -23,10 +23,15 @@ const CONFIG = (() => {
 const API_BASE = 'https://api.github.com';
 const PER_PAGE = 100;
 const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutos
+const EXCLUDED_REPOSITORIES = new Set([
+    'web-inventario',
+    'web-portfolio',
+    'peluqueria-premium'
+]);
 
 // ===== State =====
 let allRepos = [];
-let sortBy = 'created';
+let sortBy = 'updated';
 let lastFetchTime = null;
 
 // ===== DOM Elements =====
@@ -268,9 +273,9 @@ function sortRepos(repos, sortBy) {
         case 'name':
             sorted.sort((a, b) => a.name.localeCompare(b.name));
             break;
-        case 'created':
+        case 'updated':
         default:
-            sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            sorted.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
             break;
     }
 
@@ -287,6 +292,10 @@ function filterRepos(repos, searchTerm) {
         (repo.language && repo.language.toLowerCase().includes(term)) ||
         repo.topics.some(topic => topic.toLowerCase().includes(term))
     );
+}
+
+function excludeRepositories(repos) {
+    return repos.filter(repo => !EXCLUDED_REPOSITORIES.has(repo.name.toLowerCase()));
 }
 
 // ===== Rendering =====
@@ -407,7 +416,8 @@ async function init() {
 
         if (cachedRepos && cachedRepos.length > 0) {
             console.log('Loading from cache');
-            allRepos = cachedRepos;
+            allRepos = excludeRepositories(cachedRepos);
+            setCachedRepos(allRepos);
             filterAndRenderProjects();
             updateLastUpdatedDisplay();
             loadingEl.style.display = 'none';
@@ -428,8 +438,8 @@ async function init() {
             throw new Error('No repositories found for this user.');
         }
 
-        // Filter out excluded repositories (e.g., the portfolio itself)
-        const filteredRepos = repos.filter(repo => repo.name !== 'portfolio');
+        // Exclude repositories that should not appear in this portfolio.
+        const filteredRepos = excludeRepositories(repos);
         console.log(`Filtered out ${repos.length - filteredRepos.length} repository(ies)`);
 
         if (filteredRepos.length === 0) {
@@ -472,8 +482,8 @@ async function refreshDataInBackground() {
         console.log('Refreshing data in background...');
         const repos = await fetchRepos();
         if (repos.length > 0) {
-            // Filter out excluded repositories (e.g., the portfolio itself)
-            const filteredRepos = repos.filter(repo => repo.name !== 'portfolio');
+            // Exclude repositories that should not appear in this portfolio.
+            const filteredRepos = excludeRepositories(repos);
             if (filteredRepos.length > 0) {
                 const freshRepos = await fetchAllReposWithReadme(filteredRepos);
                 allRepos = freshRepos;
