@@ -26,8 +26,14 @@ const CACHE_DURATION_MS = 30 * 60 * 1000; // 30 minutos
 const EXCLUDED_REPOSITORIES = new Set([
     'web-inventario',
     'web-portfolio',
-    'peluqueria-premium'
+    'peluqueria-premium',
+    'ai-landing',
+    'omarchy'
 ]);
+const PREVIEW_IMAGES = {
+    'web-nails': 'https://raw.githubusercontent.com/guillesrl/web-nails/main/public/media/hero-nails.jpg',
+    'web-peluqueria': 'https://raw.githubusercontent.com/guillesrl/web-peluqueria/main/media/salon-hero-poster.jpg'
+};
 
 // ===== State =====
 let allRepos = [];
@@ -215,6 +221,11 @@ async function findImageInRepository(owner, repo, defaultBranch) {
 }
 
 async function extractImageForRepo(repo, readme) {
+    const projectPreview = PREVIEW_IMAGES[repo.name.toLowerCase()];
+    if (projectPreview) {
+        return projectPreview;
+    }
+
     // First try: extract from README
     const readmeImage = extractImageFromReadme(readme);
     if (readmeImage) {
@@ -296,6 +307,13 @@ function filterRepos(repos, searchTerm) {
 
 function excludeRepositories(repos) {
     return repos.filter(repo => !EXCLUDED_REPOSITORIES.has(repo.name.toLowerCase()));
+}
+
+function applyPreviewOverrides(repos) {
+    return repos.map(repo => ({
+        ...repo,
+        imageUrl: PREVIEW_IMAGES[repo.name.toLowerCase()] || repo.imageUrl
+    }));
 }
 
 // ===== Rendering =====
@@ -416,7 +434,7 @@ async function init() {
 
         if (cachedRepos && cachedRepos.length > 0) {
             console.log('Loading from cache');
-            allRepos = excludeRepositories(cachedRepos);
+            allRepos = applyPreviewOverrides(excludeRepositories(cachedRepos));
             setCachedRepos(allRepos);
             filterAndRenderProjects();
             updateLastUpdatedDisplay();
